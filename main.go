@@ -31,11 +31,14 @@ func main() {
 	session.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
 
 	session.AddHandler(messageCreate)
+	session.AddHandler(interactionCreate)
 
 	if err = session.Open(); err != nil {
 		fmt.Println("error opening connection,", err)
 		return
 	}
+
+	registerSlashCommands(session)
 
 	fmt.Println("Bot is now running. Press CTRL-C to exit.")
 
@@ -51,8 +54,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	fmt.Printf("New message: %s from %s\n", m.Content, m.Author.Username)
-
 	if m.Content == "ping!" {
 		_, err := s.ChannelMessageSend(m.ChannelID, "pong!")
 		if err != nil {
@@ -60,4 +61,44 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}
 
+}
+
+func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
+	switch i.ApplicationCommandData().Name {
+	case "ping":
+		handlePingCommand(s, i)
+	default:
+		fmt.Println("I don't know that command")
+
+	}
+}
+
+func handlePingCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "pong",
+		},
+	})
+
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func registerSlashCommands(s *discordgo.Session) {
+	commands := []*discordgo.ApplicationCommand{
+		{
+			Name:        "ping",
+			Description: "Responds with pong",
+		},
+	}
+
+	for _, command := range commands {
+		_, err := s.ApplicationCommandCreate(s.State.User.ID, "", command)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }
